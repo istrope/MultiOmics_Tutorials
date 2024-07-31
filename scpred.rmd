@@ -1,0 +1,127 @@
+---
+title: "scPred"
+output: github_document
+---
+
+## Optional: Install required packages
+```{r}
+install.packages("devtools")
+devtools::install_github("immunogenomics/harmony")
+devtools::install_github("powellgenomicslab/scPred")
+install.packages('Seurat')
+install.packages('Matrix')
+install.packages('dplyr')
+install.packages("magrittr")
+```
+
+## Load Packages
+```{r setup, include=FALSE}
+library(Seurat)
+library(Matrix)
+library(dplyr)
+library(scPred)
+library(magrittr)
+#setwd('~/Desktop/tutorials/Celltype_Calling/scPred')
+```
+# Perform CellType Calling in R Through scPred
+scPred fundamentally does feature selection from a reference dataset and offers a variety of classifiers and applies a chosen one to your query dataset
+
+## Read Reference Dataset
+It is incredibly important that the reference dataset be processed the same way as the query data. For example, correct for
+1. Normalization Method
+2. Filtering (Gene and Cell)
+3. Dimensionality Reduction Method
+```{r}
+#Read in Data
+sc.mtx <- readMM('../tutorial_data/matrix.mtx.gz')
+rownames(sc.mtx) <- read.table('../tutorial_data/features.tsv',sep = ' ')$V2
+colnames(sc.mtx) <- read.table('../tutorial_data/barcodes.tsv',sep = ' ')$V2
+sc.metadata <- read.table('../tutorial_data/Whole_miniatlas_meta.csv',sep = ',',header = T)
+rownames(sc.metadata) <- sc.metadata$NAME
+reference <- CreateSeuratObject(sc.mtx,meta.data = sc.metadata,project='normal atlas')
+```
+
+## Process Reference Dataset
+```{r}
+reference <- reference %>% 
+  NormalizeData() %>% 
+  FindVariableFeatures() %>% 
+  ScaleData() %>% 
+  RunPCA() %>% 
+  RunUMAP(dims = 1:30)
+```
+
+## Read in Query Dataset
+This dataset contains the scRNA-seq data from DCIS samples. The following has already been implemented prior to loading
+1. normalization and log transform
+2. Variable Feature identification
+3. PCA
+4. Batch Integration
+5. UMAP
+```{r}
+query <- readRDS('../tutorial_data/query.rds')
+query
+```
+
+
+## Make Reference scPred Object
+getFeatureSpace will create a scPred object stored in the @misc slot. 
+This object will contained all required information to classify cells. See ?getFeatureSpace help documentation.
+```{r}
+#celltype_major is metadata column for celltypes
+reference <- getFeatureSpace(reference, "celltype_major")
+```
+
+## Train Model for scPred
+```{r}
+#train model
+reference <- trainModel(reference)
+```
+
+## Investigate Object
+#### Training Probabilities
+```{r}
+#Training probabilities for each cell in the reference data can be accessed
+get_probabilities(reference) %>% head()
+```
+#### Retrieve the scPred Object
+1. Number of Cells
+2. Number of Features
+3. Prediction Method
+4. Performance Metrics
+
+#### Optional: retrain model
+Do this to improve the performanceon particular datasets
+```{r}
+#reference <- trainModel(reference, model = "mda", reclassify = c("lumhr", "lumsec"))
+```
+```{r}
+get_scpred(reference)
+```
+
+#### Visualize Performance for Each Cell Type
+```{r}
+plot_probabilities(reference)
+```
+Depending on the data, other models may show an better performance. 
+
+scPred is built on top of the caret package and allows using a large set of prediction models 
+(e.g. logistic regression, decision trees, bagging, neural networks, etc). 
+
+To see the list of available models see available models in caret.
+
+## Predict Labels on Query Dataset
+```{r}
+query <- scPredict(query, reference)
+```
+
+## Visualize Results
+```{r}
+DimPlot(query, group.by = "scpred_prediction", reduction = "scVI_umap")
+```
+
+## Visualize Probabilities on UMAP
+```{r}
+FeaturePlot(query, c("lumhr", "lumsec", "basal", 
+                     "macrophage", "fibroblast", "endothelial"))
+```
