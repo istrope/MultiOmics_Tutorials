@@ -1,0 +1,115 @@
+---
+title: "Seurat Integration"
+output: github_document
+---
+
+```{r}
+install.packages('Seurat')
+devtools::install_github('thomasp85/patchwork')
+if (!requireNamespace("remotes", quietly = TRUE)) {
+  install.packages("remotes")
+}
+
+remotes::install_github("satijalab/seurat-wrappers", quiet = TRUE)
+remotes::install_github("satijalab/seurat-data", quiet = TRUE)
+
+```
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(SeuratData)
+library(SeuratWrappers)
+library(patchwork)
+```
+
+##  Read In Data
+Seurat v5 assays store data in layers. These layers can store raw, un-normalized counts (layer='counts'), normalized data (layer='data'), or z-scored/variance-stabilized data (layer='scale.data'). 
+We can load in the data, remove low-quality cells, and obtain predicted cell annotations (which will be useful for assessing integration later),
+ using our Azimuth pipeline.
+```{r}
+InstallData('pbmcsca')
+# load in the pbmc systematic comparative analysis dataset
+obj <- LoadData("pbmcsca")
+obj <- subset(obj, nFeature_RNA > 1000)
+obj <- RunAzimuth(obj, reference = "pbmcref")
+obj[["RNA"]] <- split(obj[["RNA"]], f = obj$Method)
+obj
+```
+
+
+## Perform Data Without Integration
+
+```{r}
+# run standard anlaysis workflow
+obj <- NormalizeData(obj)
+obj <- FindVariableFeatures(obj)
+obj <- ScaleData(obj)
+obj <- RunPCA(obj)
+
+obj <- FindNeighbors(obj, dims = 1:30, reduction = "pca")
+obj <- FindClusters(obj, resolution = 2, cluster.name = "unintegrated_clusters")
+
+obj <- RunUMAP(obj, dims = 1:30, reduction = "pca", reduction.name = "umap.unintegrated")
+# visualize by batch and cell type annotation
+# cell type annotations were previously added by Azimuth
+DimPlot(obj, reduction = "umap.unintegrated", group.by = c("Method", "predicted.celltype.l2"))
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Perform Integration Through Packages in Seurat
+Personally, I have found the most use out of Harmony and FastMNN Integration methods if using Seurat. Always check how the umap integrates data,
+we should see a integration of batch effects but retain some sort of biological function (This is a tricky problem and could take additionally analysis to determine the best method for your dataset)
+
+```{r}
+obj <- IntegrateLayers(
+  object = obj, method = CCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.cca",
+  verbose = FALSE
+)
+
+obj <- IntegrateLayers(
+  object = obj, method = RPCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.rpca",
+  verbose = FALSE
+)
+
+obj <- IntegrateLayers(
+  object = obj, method = HarmonyIntegration,
+  orig.reduction = "pca", new.reduction = "harmony",
+  verbose = FALSE
+)
+
+obj <- IntegrateLayers(
+  object = obj, method = FastMNNIntegration,
+  new.reduction = "integrated.mnn",
+  verbose = FALSE
+)
+```
+
+## Perform Visualization
+We can visualize results from both cca and harmony to see how these methods perform on this dataset
+```{r}
+obj <- FindNeighbors(obj, reduction = "integrated.cca", dims = 1:30)
+obj <- FindClusters(obj, resolution = 2, cluster.name = "cca_clusters")
+
+obj <- RunUMAP(obj, reduction = "integrated.cca", dims = 1:30, reduction.name = "umap.cca")
+p1 <- DimPlot(
+  obj,
+  reduction = "umap.cca",
+  group.by = c("Method","cca_clusters"),
+  combine = FALSE, label.size = 2
+)
+
+obj <- FindNeighbors(obj, reduction = "harmony", dims = 1:30)
+obj <- FindClusters(obj, resolution = 2, cluster.name = "harmony_clusters")
+
+obj <- RunUMAP(obj, reduction = "harmony", dims = 1:30, reduction.name = "umap.harmony")
+p2 <- DimPlot(
+  obj,
+  reduction = "umap.harmony",
+  group.by = c("Method","harmony_clusters"),
+  combine = FALSE, label.size = 2
+)
+
+wrap_plots(c(p1, p2), ncol = 2, byrow = F)
+```
