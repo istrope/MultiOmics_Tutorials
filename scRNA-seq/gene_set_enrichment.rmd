@@ -1,0 +1,83 @@
+---
+title: "Gene Set Enrichment"
+output: github_document
+---
+
+# Gene Set Enrichment Using Seurat and ClusterProfiler
+## Install Packages
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("org.Hs.eg.db")
+
+install.packages('Seurat')
+install.packages('ggplot2')
+BiocManager::install("enrichplot")
+BiocManager::install("clusterProfiler")
+devtools::install_github('satijalab/seurat-data')
+```
+
+## Load Packages
+```{r setup, include=FALSE}
+library(org.Hs.eg.db)
+library(Seurat)
+library(ggplot2)
+library(enrichplot)
+library(clusterProfiler)
+library(SeuratData)
+```
+
+## Find Markers
+
+```{r}
+InstallData('ifnb')
+ifnb <- LoadData('ifnb')
+ifnb <- NormalizeData(ifnb)
+Idents(ifnb) <- ifnb$seurat_annotations
+
+#run DE test
+markers <- FindAllMarkers(ifnb)
+markers <- markers[markers$p_val_adj < 0.05,]
+```
+
+## Perform Differential Expression on Each Group
+```{r pressure, echo=FALSE}
+go_enrichment <- list()
+
+for (i in unique(markers$cluster)){
+    stats <- markers[markers$cluster == i,]$avg_log2FC
+    names(stats) <- markers[markers$cluster == i,]$gene
+    stats <- sort(stats,decreasing = TRUE)
+    stats[!duplicated(names(stats))] -> stats
+
+     #run gsea
+    message('Gene Set Enrichment on Cluster: ',i)
+    gse <- gseGO(geneList=stats,
+               ont ="ALL",
+               keyType = "SYMBOL",
+               nPerm = 10000,
+               minGSSize = 3,
+               maxGSSize = 800,
+               pvalueCutoff = 0.05,
+               verbose = TRUE,
+               OrgDb = org.Hs.eg.db,
+               pAdjustMethod = "none")
+    go_enrichment[[i]] <- gse
+}
+ 
+```
+
+## Investigate output of gene set Enrichment
+
+```{r}
+print(names(go_enrichment))
+```
+```{r}
+print(go_enrichment$`CD4 Memory T`)
+```
+
+## Plot Results (top 10 activated and supressed enrichment terms for gsea)
+```{r}
+dotplot(go_enrichment$`CD4 Memory T`,showCategory = 10,split = '.sign') + facet_grid(.~.sign)
+```

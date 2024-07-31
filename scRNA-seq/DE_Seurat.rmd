@@ -1,0 +1,126 @@
+---
+title: "Differential Expression"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+```
+
+## Load/Process Data
+```{r}
+InstallData('ifnb')
+ifnb <- LoadData('ifnb')
+ifnb <- NormalizeData(ifnb)
+Idents(ifnb) <- 'seurat_annotations'
+
+```
+
+## Perform Differential Expression tests between two groups
+The results data frame has the following columns :
+
+p_val : p-value (unadjusted)
+avg_log2FC : log fold-change of the average expression between the two groups. Positive values indicate that the feature is more highly expressed in the first group.
+pct.1 : The percentage of cells where the feature is detected in the first group
+pct.2 : The percentage of cells where the feature is detected in the second group
+p_val_adj : Adjusted p-value, based on Bonferroni correction using all features in the dataset.
+```{r pressure, echo=FALSE}
+monocyte.de.markers <- FindMarkers(ifnb,ident.1 = 'CD16 Mono',ident.2 = 'CD14 Mono')
+head(monocyte.de.markers)
+```
+
+## Perform Differentail Expression within same cell type across conditions
+```{r}
+ifnb$celltype.stim <- paste(ifnb$seurat_annotations,ifnb$stim,sep='_')
+Idents(ifnb) <- 'celltype.stim'
+mono.de <- FindMarkers(ifnb,ident.1 = 'CD14 Mono_STIM',ident.2 = 'CD14 Mono_CTRL')
+head(mono.de,n=10)
+```
+
+## Perform DE Analysis on oneVSall
+```{r}
+Idents(ifnb) <- 'seurat_annotations'
+all.markers <- FindAllMarkers(ifnb)
+all.markers <- all.markers[all.markers$p_val_adj < 0.05,]
+```
+
+## Perfoem DE Analysis after PseudoBulking
+This results in one gene expression profile per sample and cell type. 
+We can then perform DE analysis using DESeq2 on the sample level. 
+This treats the samples, rather than the individual cells, as independent observations.
+```{r}
+pseudo_ifnb <- AggregateExpression(finb,assays = 'RNA',return.seurat=T,group.by = c('stim','donor_id','seurat_annotations'))
+pseudo_ifnb$celltype.stim <- paste(pseudo_ifnb$seurat_annotations, pseudo_ifnb$stim, sep = "_")
+Idents(pseudo_ifnb) <- "celltype.stim"
+
+bulk.mono.de <- FindMarkers(object = pseudo_ifnb, 
+                         ident.1 = "CD14 Mono_STIM", 
+                         ident.2 = "CD14 Mono_CTRL",
+                         test.use = "DESeq2")
+head(bulk.mono.de, n = 15)
+```
+
+### Compare DE P-values between single cell and pseudobulk level
+```{r}
+# compare the DE P-values between the single-cell level and the pseudobulk level results
+names(bulk.mono.de) <- paste0(names(bulk.mono.de), ".bulk")
+bulk.mono.de$gene <- rownames(bulk.mono.de)
+
+names(mono.de) <- paste0(names(mono.de), ".sc")
+mono.de$gene <- rownames(mono.de)
+
+merge_dat <- merge(mono.de, bulk.mono.de, by = "gene")
+merge_dat <- merge_dat[order(merge_dat$p_val.bulk), ]
+
+# Number of genes that are marginally significant in both; marginally significant only in bulk; and marginally significant only in single-cell
+common <- merge_dat$gene[which(merge_dat$p_val.bulk < 0.05 & 
+                                merge_dat$p_val.sc < 0.05)]
+only_sc <- merge_dat$gene[which(merge_dat$p_val.bulk > 0.05 & 
+                                  merge_dat$p_val.sc < 0.05)]
+only_bulk <- merge_dat$gene[which(merge_dat$p_val.bulk < 0.05 & 
+                                    merge_dat$p_val.sc > 0.05)]
+print(paste0('# Common: ',length(common)))
+print(paste0('# Only in single-cell: ',length(only_sc)))
+print(paste0('# Only in bulk: ',length(only_bulk)))
+```
+
+
+## Perform DE Analysis Using Alternative tests
+“wilcox” : Wilcoxon rank sum test (default, using ‘presto’ package)
+“wilcox_limma” : Wilcoxon rank sum test (using ‘limma’ package)
+“bimod” : Likelihood-ratio test for single cell feature expression, (McDavid et al., Bioinformatics, 2013)
+“roc” : Standard AUC classifier
+“t” : Student’s t-test
+“poisson” : Likelihood ratio test assuming an underlying negative binomial distribution. Use only for UMI-based datasets
+“negbinom” : Likelihood ratio test assuming an underlying negative binomial distribution. Use only for UMI-based datasets
+“LR” : Uses a logistic regression framework to determine differentially expressed genes. Constructs a logistic regression model predicting group membership based on each feature individually and compares this to a null model with a likelihood ratio test.
+“MAST” : GLM-framework that treates cellular detection rate as a covariate (Finak et al, Genome Biology, 2015) (Installation instructions)
+“DESeq2” : DE based on a model using the negative binomial distribution (Love et al, Genome Biology, 2014) (Installation instructions) For MAST and DESeq2, please ensure that these packages are installed separately in order to use them as part of Seurat. Once installed, use the test.use parameter can be used to specify which DE test to use.
+
+```{r}
+# Test for DE features using the MAST package
+Idents(ifnb) <- "seurat_annotations"
+head(FindMarkers(ifnb, ident.1 = "CD14 Mono", ident.2 = "CD16 Mono", test.use = "MAST"))
+```
+
+## Plotting DE Results
+#### Violin Plot (Expression Levels of Top Genes)
+```{r}
+Idents(ifnb) <- "celltype.stim"
+mono.de$group <- ifelse(mono.de$avg_log2FC > 0,'CTRL','STRIM') #choose top ctrl and stim de genes
+mono.de$gene <- rownames(mono.de)
+top = mono.de %>% group_by(group) %>% top_n(abs(avg_log2FC),n=1)
+VlnPlot(ifnb, features = top$gene, idents = c("CD14 Mono_CTRL", "CD14 Mono_STIM"), group.by = "stim") 
+```
+
+#### Heatmap between groups
+
+```{r}
+#Have to run VariableFeatures, ScaleData, and PCA Before (Heatmap on Scaled Data)
+ifnb <- ifnb %>% FindVariableFeatures() %>% ScaleData() %>% RunPCA()
+#take the top 20 markers 
+top.markers <- all.markers %>% group_by(cluster) %>% top_n(-p_val_adj,n=20)
+DoHeatmap(ifnb,features = top.markers$gene)
+```
