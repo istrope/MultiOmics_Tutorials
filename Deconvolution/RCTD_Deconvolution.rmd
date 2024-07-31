@@ -1,0 +1,113 @@
+---
+title: "RCTD Deconvolution"
+output: github_document
+---
+
+## Install and Load Packages
+```{r}
+devtools::install_github('https://github.com/dmcable/spacexr')
+#install.packages('Seurat')
+#install.packages('Matrix')
+```
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(Matrix)
+library(spacexr)
+library
+setwd('~/Desktop/tutorials/Deconvolution/RCTD')
+```
+
+# Load in Reference Data
+```{r}
+ref <- readRDS('../brca_atlas.rds')
+ref
+```
+
+### Update Metadata
+```{r}
+#extract counts matrix
+sc.mtx <- ref@assays$RNA$counts
+sc.metadata <- ref@meta.data
+#format metadata
+sc_meta <- ref@meta.data[,c('NAME','celltype_ivy','Patient')]
+colnames(sc_meta) <- c('cellID','cellType','sampleInfo')
+rownames(sc_meta) <- sc_meta$cellID
+```
+
+
+# RCTD Deconvolution
+
+```{r}
+readRDS('../GV25999_mouse.rds') -> vehicle
+readRDS('../GV26001_mouse.rds') -> ac21
+readRDS('../GV26002_mouse.rds') -> ac50
+```
+### Set Up Reference Set for RCTD
+```{r}
+# Make UMI Metadata
+nUMI <- colSums(sc.mtx)
+names(nUMI) <- sc.metadata$NAME
+# Set CellType Information
+celltypes <- as.factor(sc_meta$cellType)
+# Set cellID
+names(celltypes) <- sc.metadata$NAME
+
+# Make Reference Set
+reference <- Reference(sc.mtx,celltypes,nUMI)
+```
+### Run RCTD Deconvolution
+```{r}
+# Run RCTD for Spatial Transcriptomics data
+RCTD <- function(gobject,reference){
+
+  #set up RCTD query objects
+  sample_UMI <- colSums(gobject@expression$cell$rna$raw@exprMat)
+  names(sample_UMI) <- gobject@cell_ID$cell
+  coords <- as.data.frame(gobject@spatial_locs$cell$raw@coordinates[,1:2])
+  rownames(coords) <- gobject@cell_ID$cell
+  puck <- SpatialRNA(coords,gobject@expression$cell$rna$raw@exprMat,sample_UMI)
+  
+  #create and run RCTD
+  sample_RCTD <- create.RCTD(puck,reference,max_cores = 3)
+  sample_RCTD <- run.RCTD(sample_RCTD,doublet_mode = 'doublet')
+  #Extract Results
+  results <- sample_RCTD@results
+  #Normalize from 0->1, representing percentages
+  norm_weights <- normalize_weights(results$weights)
+  cell_ID <- rownames(norm_weights)
+
+  norm_weights <- data.table::as.data.table(norm_weights)
+  norm_weights$cell_ID <- cell_ID #add cellID 
+  
+  #Create Spatial Enrichment object in Giotto and add RCTD Results
+  RCTD <- createSpatEnrObj(norm_weights,name='RCTD',spat_unit = 'cell',feat_type = 'rna')
+  gobject@spatial_enrichment$cell$rna$RCTD <- norm_weights
+  
+  return(gobject)
+}
+
+#Run Function for each giotto object
+vehicle <- RCTD(vehicle,reference)
+ac21 <- RCTD(ac21,reference)
+ac50 <- RCTD(ac50,reference)
+```
+
+### Visualize Celltype Proportions
+```{r}
+celltypes <- colnames(vehicle@spatial_enrichment$cell$rna$RCTD@exprMat)
+celltypes  <- cells[!cells == 'cell_ID']
+spatCellPlot2D(vehicle,spat_enr_names = 'RCTD',cell_annotation_values = celltypes)
+```
+
+```{r}
+celltypes <- colnames(ac21@spatial_enrichment$cell$rna$RCTD@exprMat)
+celltypes  <- cells[!cells == 'cell_ID']
+spatCellPlot2D(ac21,spat_enr_names = 'RCTD',cell_annotation_values = celltypes)
+```
+
+```{r}
+celltypes <- colnames(ac50@spatial_enrichment$cell$rna$RCTD@exprMat)
+celltypes  <- cells[!cells == 'cell_ID']
+spatCellPlot2D(ac50,spat_enr_names = 'RCTD',cell_annotation_values = celltypes)
+```

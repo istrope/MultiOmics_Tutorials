@@ -1,0 +1,141 @@
+---
+title: "BayesPrism Deconvolution"
+output: github_document
+---
+## Install and Load Packages
+```{r}
+devtools::install_github("Danko-Lab/BayesPrism/BayesPrism")
+install.packages('dplyr')
+install.packages('Matrix')
+install.packages('data.table')
+
+#Install Giotto
+# Necessary for installation from R
+if(!"devtools" %in% installed.packages()) {
+  install.packages("devtools")
+}
+
+devtools::install_github("drieslab/Giotto@suite")
+
+library(Giotto)
+installGiottoEnvironment()
+```
+```{r setup, include=FALSE}
+library(BayesPrism)
+library(Matrix)
+library(dplyr)
+setwd('~/Desktop/tutorials/Deconvolution/BayesPrism')
+```
+
+## Load Reference Dataset and Preprocess
+
+```{r}
+#Reference Dataset
+ref <- readRDS('../brca_atlas.rds')
+sc.mtx <- ref@assays$RNA$counts
+metadata <- ref@meta.data
+#specify celltypes and cellstates
+celltypes <- metadata$celltype_major
+cellstates <- metadata$celltype_minor
+
+#Endothelial and PVL have too many states and are too similar in expression
+library(data.table)
+cellstates[cellstates %like% 'Endothelial'] <- 'Endothelial'
+cellstates[cellstates %like% 'PVL'] <- 'PVL'
+cellstate_subset <- metadata$celltype_subset
+
+```
+
+### Check Celltype Correlations
+we want to see low overlap in different celltypes (i.e., these cells are different enough to call as independent)
+Running Deconvolution on similar celltypes usually results in highly innacurate deconvolution
+```{r pressure}
+sc.mtx <- t(sc.mtx)
+plot.cor.phi(input = sc.mtx,input.labels = cellstates,title='cell state correlation',cexRow=0.75,cexCol=0.75,margins=c(8,8))
+plot.cor.phi(input=sc.mtx,input.labels = cellstate_subset,title='cell state subset correlations',cexRow=0.75,cexCol=0.75,margins=c(15,15))
+plot.cor.phi(input = sc.mtx,input.labels = celltypes,title='cell type correlation',cexRow=1.0,cexCol=1.0)
+```
+
+### Filter Outlier Genes and Subset to Protein Coding
+When running deconvolution, it is imperative to utilize good genes that differentiate celltypes, are unique to each cell, have adequate expression.
+Without good genes, we will not be able to get a good results
+Typically this is the most important step, most tools perform well if good data is used
+```{r}
+sc.stat <- plot.scRNA.outlier(input = sc.mtx,cell.type.labels = cellstates,species = 'hs',return.raw = TRUE)
+sc.mtx.filtered <- cleanup.genes(input = sc.mtx,input.type = 'count.matrix',species = 'hs',
+                                 gene.group = c('Rb','Mrp','MALAT1','chrM','chrX','chrY'),
+                                 exp.cells = 5)
+
+sc.mtx.filtered.pc <- select.gene.type(sc.mtx.filtered,gene.type = 'protein_coding')
+```
+
+### Subset Genes to Differential Genes
+Not essential, but could help when celltypes are similar
+This analysis uses differential gene expression, sets cutoffs for the genes found, and subsets object to these genes
+Adjust the thresholding if too few genes are found (Personally, I like using at least 100 genes per celltype)
+```{r}
+diff.exp.stat <- get.exp.stat(sc.dat = sc.mtx[,colSums(as.matrix(sc.mtx)>0)>3],
+                              cell.type.labels = cellstates,
+                              cell.state.labels = cellstate_subset,
+                              pseudo.count = 0.1,
+                              cell.count.cutoff = 50,
+                              n.cores=1)
+sc.mtx.filtered.pc.sig <- select.marker(sc.dat = sc.mtx.filtered.pc,
+                                        stat=diff.exp.stat,
+                                        pval.max = 0.01,
+                                        lfc.min = 0.1)
+```
+
+# Run BayesPrism
+```{r}
+library(Giotto)
+readRDS('../GV25999_mouse.rds') -> vehicle.mouse
+readRDS('../GV26001_mouse.rds') -> ac21.mouse
+readRDS('../GV26002_mouse.rds') -> ac50.mouse
+
+vehicle.expr <- t(vehicle.mouse@expression$cell$rna$raw@exprMat)
+ac21.expr <- t(ac21.mouse@expression$cell$rna$raw@exprMat)
+ac50.expr <- t(ac50.mouse@expression$cell$rna$raw@exprMat)
+```
+
+### Construct BayesPrism Object on Reference Dataset
+```{r}
+myPrism <- new.prism(
+  reference=as.matrix(sc.mtx.filtered.pc.mouse),
+  mixture = as.matrix(vehicle.expr),
+  input.type = 'count.matrix',
+  cell.type.labels = celltypes,
+  cell.state.labels = cellstate_subset,
+  key = NULL,
+  outlier.cut = 0.1,
+  outlier.fraction = 0.1
+)
+```
+
+### Run BayesPrism
+This step can take an enourmous amount of time and I suggest running on the cluster and inclreasing  the n.cores to >20 
+```{r}
+veh.res <- run.prism(prism = myPrism, n.cores=4)
+
+#Extract the Posterior Mean of Cell Type Fraction Theta
+veh.theta <- get.fraction (bp=veh.res,
+                                    which.theta="final",
+                                    state.or.type="type")
+
+#Extract Coefficient of Variation (CV) of Cell Type Fraction
+theta.cv <- veh.res@posterior.theta_f@theta.cv
+
+```
+
+**Downstream analysis**
+Potential downstream analysis can be performed using theta and Z are:
+
+- Clustering bulk samples by theta or Z (Z can be normalized by vst(round(t(Z.tumor))), using the vst function from the DESeq2 package.)
+
+- Computing z-scores of signature genes for Z of the cell type of interest.
+
+- Survival analysis and correlation with other clinical covariates using theta and Z.
+
+- Correlating Z (after normalization using vst or from bp.res@reference.update@psi_mal) with theta to understand how gene expression of each gene (in malignant cells) correlates with the cell type fraction of non-malignant cells in tumor micro-environment, followed by gene set enrichment analysis (as done in BayesPrism paper).
+
+- Embedding learning of malignant gene expression (see “Tutorial: embedding learning of malignant cell expression using BayesPrism”)

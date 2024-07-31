@@ -1,0 +1,117 @@
+---
+title: "CARD Deconvolution"
+output: github_document
+---
+
+```{r}
+install.packages('Seurat')
+install.packages('Matrix')
+install.packages('devtools')
+devtools::install_github('YingMa0107/CARD')
+devtools::install_github('xuranw/MuSiC')
+BiocManager::install("TOAST")
+```
+```{r setup, include=FALSE}
+library(Seurat)
+library(Matrix)
+library(CARD)
+library(Giotto)
+setwd('~/Desktop/tutorials/Deconvolution/CARD')
+```
+
+# Load in Reference Data
+```{r}
+ref <- readRDS('../brca_atlas.rds')
+ref
+```
+
+### Update Metadata
+```{r}
+#extract counts matrix
+sc.mtx <- ref@assays$RNA$counts
+#format metadata
+sc_meta <- ref@meta.data[,c('NAME','celltype_ivy','Patient')]
+colnames(sc_meta) <- c('cellID','cellType','sampleInfo')
+rownames(sc_meta) <- sc_meta$cellID
+```
+
+
+# Run CARD Enrichment
+```{r}
+readRDS('../GV25999_mouse.rds') -> vehicle
+readRDS('../GV26001_mouse.rds') -> ac21
+readRDS('../GV26002_mouse.rds') -> ac50
+```
+
+```{r}
+extract_info <- function(gobject){
+    #Extract Raw Expression from Query
+    raw_expr <- gobject@expression$cell$rna$raw@exprMat
+    rownames(raw_expr) -> gene_names
+    raw_expr <- as(raw_expr,'dgTMatrix')
+
+    #Set Spatial Information
+    spatial_locs <- gobject@spatial_locs$cell$raw@coordinates
+    spatial_locs <- spatial_locs[,1:2]
+    spatial_locs <- as.data.frame(spatial_locs)
+    rownames(spatial_locs) <- gobject@spatial_locs$cell$raw@coordinates$cell_ID
+    colnames(spatial_locs) <- c('x','y')
+
+    out <- list('expr' = raw_expr,'locs' = spatial_locs)
+    return(out)
+}
+vehicle.input <- extract_info(vehicle)
+ac21.input <- extract_info(ac21)
+ac50.input <- extract_info(ac50)
+
+```
+
+### Set Up CARD Object
+```{r}
+vehicle_CARD <- createCARDObject(sc_count=sc.mtx,
+                                 sc_meta = sc_meta,
+                                 spatial_count = vehicle.input$expr,
+                                 spatial_location = vehicle.input$locs,
+                                 ct.varname = 'cellType',
+                                 ct.select = unique(sc_meta$cellType),
+                                 sample.varname='sampleInfo')
+
+ac21_CARD <- createCARDObject(sc_count=sc.mtx,
+                                 sc_meta = sc_meta,
+                                 spatial_count = ac21.input$expr,
+                                 spatial_location = ac21.input$locs,
+                                 ct.varname = 'cellType',
+                                 ct.select = unique(sc_meta$cellType),
+                                 sample.varname='sampleInfo')
+
+ac50_CARD <- createCARDObject(sc_count=sc.mtx,
+                                 sc_meta = sc_meta,
+                                 spatial_count = ac50.input$expr,
+                                 spatial_location = ac50.input$locs,
+                                 ct.varname = 'cellType',
+                                 ct.select = unique(sc_meta$cellType),
+                                 sample.varname='sampleInfo')
+```
+
+### Run Deconvolution
+```{r}
+vehicle_CARD <- CARD_deconvolution(CARD_object = vehicle_CARD)
+ac21_CARD <- CARD_deconvolution(CARD_object = ac21_CARD)
+ac50_CARD <- CARD_deconvolution(CARD_object = ac50_CARD)
+```
+
+### Visualize Deconvolution Results
+```{r}
+ct.visualize <- colnames(vehicle_CARD@Proportion_CARD)
+CARD.visualize.prop(vehicle_CARD@Proportion_CARD,spatial_location=vehicle_CARD@spatial_location,ct.visualize=ct.visualize,NumCols = 4,pointSize = 2)
+```
+
+```{r}
+ct.visualize <- colnames(ac21_CARD@Proportion_CARD)
+CARD.visualize.prop(ac21_CARD@Proportion_CARD,spatial_location=ac21_CARD@spatial_location,ct.visualize=ct.visualize,NumCols = 4,pointSize = 2)
+```
+
+```{r}
+ct.visualize <- colnames(ac50_CARD@Proportion_CARD)
+CARD.visualize.prop(ac50_CARD@Proportion_CARD,spatial_location=ac50_CARD@spatial_location,ct.visualize=ct.visualize,NumCols = 4,pointSize = 2)
+```

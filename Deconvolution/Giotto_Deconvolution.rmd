@@ -1,0 +1,111 @@
+---
+title: "CARD Deconvolution"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(Matrix)
+library(CARD)
+library(dplyr)
+library(Giotto)
+```
+
+# Load in Reference Data
+```{r}
+ref <- readRDS('../brca_atlas.rds')
+sc.mtx <- ref@assays$RNA$counts
+ref
+```
+
+### Make Seurat object, set identities, and find DE genes
+Finding good marker genes is the most important part of deconvolution, especially with the following methods.
+There are good review articles on deconvolution practices that give a good way to select markers for all analyses and 
+what to keep in mind.
+```{r}
+Idents(ref) <- ref$celltype_ivy
+#process dataset for marker identification
+ref <- ref %>% NormalizeData() %>% FindVariableFeatures() %>% ScaleData() %>% RunPCA()
+markers <- FindAllMarkers(ref)
+```
+
+### Filter Markers for Deconvolution Analysis
+```{r}
+markers <- markers[markers$p_val_adj < 0.05,]
+markers <- markers[markers$avg_log2FC > 1,]
+markers.filtered <- markers[markers$pct.1 > 0.5 & markers$pct.2 < 0.25,]
+```
+
+
+# Run Enrichments Available in Giotto Package
+```{r}
+readRDS('../GV25999_mouse.rds') -> vehicle
+readRDS('../GV26001_mouse.rds') -> ac21
+readRDS('../GV26002_mouse.rds') -> ac50
+```
+
+### DWLS Enrichment
+Dampened weighted least squares (DWLS) is an estimation method for gene expression deconvolution, 
+in which the cell-type composition of a bulk RNA-seq data set is computationally inferred. 
+
+This method corrects common biases towards cell types that are characterized by highly expressed genes and/or are highly prevalent, 
+to provide accurate detection across diverse cell types. 
+
+To begin, the user must input a bulk RNA-seq data set, along with a labeled representative single-cell RNA-seq data set 
+that will serve to generate cell-type-specific gene expression profiles. 
+Ideally, the single-cell data set will contain cells from all cell types that may be found in the bulk data. 
+DWLS will return the cell-type composition of the bulk data.
+```{r}
+stroma_dwls <- makeSignMatrixDWLSfromMatrix(sc.mtx,sign_gene = unique(markers.filtered$gene),cell_type_vector = ref@meta.data$celltype_ivy)
+vehicle <- runDWLSDeconv(vehicle, # giotto object
+                         expression_values = 'normalized', #choose normalized gene expression
+                         n_cell = 10, # number of cells in spot
+                         cluster_column = 'leiden_0.4_1000', #choose starting cell type cluster
+                         sign_matrix = stroma_dwls) #signature matrix
+ac21 <- runDWLSDeconv(ac21,expression_values = 'normalized',n_cell = 10,cluster_column = 'leiden_0.4_1000',sign_matrix = stroma_dwls)
+ac50 <- runDWLSDeconv(ac50,expression_values = 'normalized',n_cell = 10,cluster_column = 'leiden_0.4_1000',sign_matrix = stroma_dwls)
+
+celltypesubset <- colnames(vehicle@spatial_enrichment$cell$rna$DWLS@enrichDT)
+celltypesubset <- celltypesubset[2:length(celltypesubset)]
+spatCellPlot(vehicle,spat_enr_names = 'DWLS',cell_annotation_values = celltypesubset,
+             cow_n_col = 2,coord_fix_ratio = NULL,save_plot =F,point_size = 1.5)
+```
+### RANK Enrichment
+First a new rank is calculated as R = (R1*R2)^(1/2), where R1 is the rank of fold-change for each gene in each spot and R2 is the rank of each marker in each cell type. 
+The Rank-Biased Precision is then calculated as: RBP = (1 - 0.99) * (0.99)^(R - 1) and the final enrichment score is then calculated as the sum of top 100 RBPs.
+```{r}
+rank_matrix <- Giotto::makeSignMatrixRank(sc.mtx,sc_cluster_ids = ref@meta.data$celltype_ivy,ties_method = 'max')
+#rownames(rank_matrix) <- stringr::str_to_title(rownames(rank_matrix))
+vehicle <- Giotto::runRankEnrich(vehicle,sign_matrix = rank_matrix,expression_values = 'normalized')
+ac21 <- Giotto::runRankEnrich(ac21,sign_matrix = rank_matrix,expression_values = 'normalized')
+ac50 <- Giotto::runRankEnrich(ac50,sign_matrix = rank_matrix,expression_values = 'normalized')
+
+#VISUALIZE CELLTYPE CLUSTERS
+spatCellPlot(vehicle,spat_enr_names = 'rank',cell_annotation_values = celltypesubset,
+             cow_n_col = 2,coord_fix_ratio = NULL,save_plot =F,point_size = 1.5)
+```
+
+
+### PAGE Enrichment
+The enrichment Z score is calculated by using method (PAGE) from Kim SY et al., BMC bioinformatics, 2005 as 
+Z=((Sm–mu)∗m (1/2))/delta. 
+
+For each gene in each spot, mu is the fold change values versus the mean expression and delta is the standard deviation. 
+Sm is the mean fold change value of a specific marker gene set and m is the size of a given marker gene set.
+```{r}
+# SELECT MARKER GENES FROM DE ANALYSIS
+markers.up <- markers[markers$avg_log2FC > 0.5,]
+sign_list <- split(markers.up,markers.up$cluster)
+sign_list <- lapply(X=sign_list,FUN = function(x){x <- x$gene})
+page_matrix <- Giotto::makeSignMatrixPAGE(sign_names = names(sign_list),
+                                          sign_list = sign_list)
+
+vehicle <- Giotto::runPAGEEnrich(vehicle,sign_matrix = page_matrix,expression_values = 'normalized')
+ac21 <- Giotto::runPAGEEnrich(ac21,sign_matrix = page_matrix,expression_values = 'normalized')
+ac50 <- Giotto::runPAGEEnrich(ac50,sign_matrix = page_matrix,expression_values = 'normalized')
+
+
+#VISUALIZE PAGE ENRICHMENT
+spatCellPlot(vehicle,spat_enr_names = 'PAGE',cell_annotation_values = celltypesubset,
+             cow_n_col = 2,coord_fix_ratio = NULL,save_plot =F,point_size = 1.5)
+```
