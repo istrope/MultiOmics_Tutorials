@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<!-- saved from url=(0048)https://dynamo-release.readthedocs.io/en/latest/ -->
+<html class="writer-html5" lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamo: Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/pygments.css">
+      <link rel="stylesheet" type="text/css" href="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/theme.css">
+      <link rel="stylesheet" type="text/css" href="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/custom.css">
+      <link rel="stylesheet" type="text/css" href="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/sg_gallery.css">
+      <link rel="stylesheet" type="text/css" href="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/custom.css">
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script type="text/javascript" async="" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/analytics.js"></script><script src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/jquery.js"></script>
+        <script src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="./" id="documentation_options" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/documentation_options.js"></script>
+        <script src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/doctools.js"></script>
+        <script src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/require.min.js"></script>
+        <script async="async" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/readthedocs-doc-embed.js"></script>
+    <script src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/theme.js"></script>
+    <link rel="index" title="Index" href="https://dynamo-release.readthedocs.io/en/latest/genindex.html">
+    <link rel="search" title="Search" href="https://dynamo-release.readthedocs.io/en/latest/search.html">
+    <link rel="next" title="Time-resolved scRNA-seq" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Introduction.html"> 
+
+<!-- RTD Extra Head -->
+
+<link rel="stylesheet" href="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/readthedocs-doc-embed.css" type="text/css">
+
+<script type="application/json" id="READTHEDOCS_DATA">{"ad_free": true, "api_host": "https://readthedocs.org", "builder": "sphinx", "canonical_url": null, "docroot": "/docs/source/", "features": {"docsearch_disabled": false}, "global_analytics_code": "UA-17997319-1", "language": "en", "page": "index", "programming_language": "words", "project": "dynamo-release", "proxied_api_host": "/_", "source_suffix": ".rst", "subprojects": {}, "theme": "sphinx_rtd_theme", "user_analytics_code": "", "version": "latest"}</script>
+
+<!--
+Using this variable directly instead of using `JSON.parse` is deprecated.
+The READTHEDOCS_DATA global variable will be removed in the future.
+-->
+<script type="text/javascript">
+READTHEDOCS_DATA = JSON.parse(document.getElementById('READTHEDOCS_DATA').innerHTML);
+</script>
+
+<script type="text/javascript" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/readthedocs-analytics.js" async="async"></script>
+
+<!-- end RTD <extrahead> -->
+<script src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/js" type="text/javascript" async=""></script></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+
+          
+          
+          <a href="https://dynamo-release.readthedocs.io/en/latest/#">
+            
+              <img src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/logo_with_word.webp" class="logo" alt="Logo">
+          </a>
+              <div class="version">
+                latest
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="https://dynamo-release.readthedocs.io/en/latest/search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs">
+    <input type="hidden" name="check_keywords" value="yes">
+    <input type="hidden" name="area" value="default">
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Introduction.html">Time-resolved scRNA-seq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Primer.html">Primer on differential geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/lap_box_introduction.html">Optimal cell fate transitions via most probable path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/perturbation_introduction_theory.html"><em>in silico</em> perturbation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/ten_minutes_to_dynamo.html">10 minutes to dynamo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/API.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/Class.html">Class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/Release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/References.html">Reference</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Preprocessing</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/Preprocessor_tutorial.html">Preprocessing Tutorial</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Conventional scRNA-seq</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/zebrafish.html">Zebrafish pigmentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Labeling scRNA-seq</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/tutorial_hsc_velocity.html">scNT-seq human hematopoiesis dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/scNT_seq_readthedocs.html">scNT-seq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/scEU_seq_rpe1_analysis_kinetic.html">scEU-seq cell cycle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/scEU_seq_organoid_analysis_kinetic.html">scEU-seq organoid</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Differential geometry</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/hsc_differential_geometry_index.html">scNT-seq human hematopoiesis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Differential_geometry.html">Zebrafish pigementation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Vector field predictions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/lap_tutorial/lap_tutorial.html">Most probable path predictions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/perturbation_tutorial/perturbation_tutorial.html"><em>in silico</em> perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/Shiny.html">Shiny App</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Gallery</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/gallery/index.html">Tutorial gallery</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="https://dynamo-release.readthedocs.io/en/latest/#">dynamo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="https://dynamo-release.readthedocs.io/en/latest/#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active"><strong>Dynamo</strong>: Mapping Vector Field of Single Cells</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/aristoteleo/dynamo/blob/master/docs/source/index.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<p><a class="reference external" href="https://pypi.org/project/dynamo-release/"><img alt="upload" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/dynamo-release"></a> <a class="reference external" href="https://anaconda.org/conda-forge/dynamo-release"><img alt="conda" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/dynamo-release.svg"></a> <a class="reference external" href="https://pepy.tech/project/dynamo-release"><img alt="download" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/dynamo-release(1)"></a> <a class="reference external" href="https://github.com/aristoteleo/dynamo-release/stargazers"><img alt="star" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/dynamo-release(2)"></a> <a class="reference external" href="https://github.com/aristoteleo/dynamo-release/actions/workflows/python-package.yml"><img alt="build" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/badge.svg"></a> <a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/"><img alt="documentation" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/saved_resource"></a>
+<a class="reference external" href="https://github.com/aristoteleo/dynamo-release/actions/workflows/python-publish.yml"><img alt="upload_python_package" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/badge(1).svg"></a> <a class="reference external" href="https://github.com/aristoteleo/dynamo-release/actions/workflows/python-plain-run-test.yml"><img alt="test" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/badge(2).svg"></a></p>
+<section id="dynamo-mapping-vector-field-of-single-cells">
+<h1><strong>Dynamo</strong>: Mapping Vector Field of Single Cells<a class="headerlink" href="https://dynamo-release.readthedocs.io/en/latest/#dynamo-mapping-vector-field-of-single-cells" title="Permalink to this heading"></a></h1>
+<p>Inclusive model of expression dynamics with metabolic labeling based
+scRNA-seq / multiomics, vector field reconstruction, potential landscape
+mapping, differential geometry analyses, and most probably paths / <em>in
+silico</em> perturbation predictions.</p>
+<p><a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/ten_minutes_to_dynamo.html#how-to-install">Installation</a>
+- <a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/ten_minutes_to_dynamo.html">Ten minutes to
+dynamo</a>
+-
+<a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Differential_geometry.html">Tutorials</a>
+- <a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/API.html">API</a> -
+<a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0092867421015774?via%3Dihub">Citation</a>
+-
+<a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Primer.html">Theory</a></p>
+<img alt="https://user-images.githubusercontent.com/7456281/152110270-7ee1b0ed-1205-495d-9d65-59c7984d2fa2.png" class="align-center" src="./Dynamo_ Mapping Vector Field of Single Cells — dynamo 1.4.0 documentation_files/152110270-7ee1b0ed-1205-495d-9d65-59c7984d2fa2.png">
+<p>Single-cell (sc)RNA-seq, together with RNA velocity and metabolic
+labeling, reveals cellular states and transitions at unprecedented
+resolution. Fully exploiting these data, however, requires kinetic
+models capable of unveiling governing regulatory functions. Here, we
+introduce an analytical framework dynamo, which infers absolute RNA
+velocity, reconstructs continuous vector fields that predict cell fates,
+employs differential geometry to extract underlying regulations, and
+ultimately predicts optimal reprogramming paths and perturbation
+outcomes. We highlight dynamo’s power to overcome fundamental
+limitations of conventional splicing-based RNA velocity analyses to
+enable accurate velocity estimations on a metabolically labeled human
+hematopoiesis scRNA-seq dataset. Furthermore, differential geometry
+analyses reveal mechanisms driving early megakaryocyte appearance and
+elucidate asymmetrical regulation within the PU.1-GATA1 circuit.
+Leveraging the least-action-path method, dynamo accurately predicts
+drivers of numerous hematopoietic transitions. Finally, in silico
+perturbations predict cell-fate diversions induced by gene
+perturbations. Dynamo, thus, represents an important step in advancing
+quantitative and predictive theories of cell-state transitions.</p>
+</section>
+<section id="highlights-of-dynamo">
+<h1>Highlights of dynamo<a class="headerlink" href="https://dynamo-release.readthedocs.io/en/latest/#highlights-of-dynamo" title="Permalink to this heading"></a></h1>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>Robust and accurate estimation of RNA velocities for regular scRNA-seq datasets:</dt><dd><ul class="simple">
+<li><p>Three methods for the velocity estimations (including the new negative binomial distribution based approach)</p></li>
+<li><p>Improved kernels for transition matrix calculation and velocity projection</p></li>
+<li><p>Strategies to correct RNA velocity vectors (when your RNA velocity direction is problematic)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Inclusive modeling of time-resolved metabolic labeling based scRNA-seq:</dt><dd><ul class="simple">
+<li><p>Explicitly model RNA metabolic labeling, in conjunction with RNA bursting, transcription, splicing and degradation</p></li>
+<li><p>Comprehensive RNA kinetic rate estimation for one-shot, pulse, chase and mixture metabolic labeling experiments</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Move beyond RNA velocity to continuous vector field function for functional and predictive analyses of cell fate transitions:</dt><dd><ul class="simple">
+<li><p>Dynamical systems approaches to identify stable cell types (fixed points), boundaries of cell states (separatrices), etc</p></li>
+<li><p>Calculate RNA acceleration (reveals early drivers), curvature (reveals master regulators of fate decision points), divergence (stability of cell states) and RNA Jacobian (cell-state dependent regulatory networks)</p></li>
+<li><p>Various downstream differential geometry analyses to rank critical regulators/effectors,  and visualize regulatory networks at key fate decision points</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Non-trivial vector field prediction of cell fate transitions:</dt><dd><ul class="simple">
+<li><p>Least action path approach to predict the optimal paths and transcriptomic factors of cell fate reprogrammings</p></li>
+<li><p>In silico perturbation to predict the gene-wise perturbation effects and cell fate diversion after genetic perturbations</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</section>
+<section id="news">
+<h1>News<a class="headerlink" href="https://dynamo-release.readthedocs.io/en/latest/#news" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p>5/30/2023: dynamo 1.3.0 released!</p></li>
+<li><p>3/1/2023: We welcome @Sichao25 to join the dynamo develop team!</p></li>
+<li><p>1/28/2023: We welcome @Ukyeon to join the dynamo develop team!</p></li>
+<li><p>15/12/2022: <em>Thanks for @elfofmaxwell and @MukundhMurthy’s
+contribution</em>. dynamo 1.2.0 released</p></li>
+<li><p>11/11/2022: the continuing development of dynamo and the Aristotle
+ecosystem will be supported by CZI. See
+<a class="reference external" href="https://chanzuckerberg.com/eoss/proposals/predictive-modeling-of-single-cell-multiomics-over-time-and-space/">here</a></p></li>
+<li><p>4/14/2022: dynamo 1.1.0 released!</p></li>
+<li><p>3/14/2022: Since today dynamo has its own logo! Here the arrow
+represents the RNA velocity vector field, while the helix the RNA
+molecule and the colored dots RNA metabolic labels (4sU labeling).
+See
+<a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/index.html">readthedocs</a></p></li>
+<li><p>2/15/2022: primers and tutorials on least action paths and in silico
+perturbation are released.</p></li>
+<li><p>2/1/2022: after 3.5+ years of perseverance, our dynamo paper is
+finally online in
+<a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0092867421015774#tbl1">Cell</a>
+today!</p></li>
+</ul>
+</section>
+<section id="discussion">
+<h1>Discussion<a class="headerlink" href="https://dynamo-release.readthedocs.io/en/latest/#discussion" title="Permalink to this heading"></a></h1>
+<p>Please use github issue tracker to report coding related <a class="reference external" href="https://dynamo-release.readthedocs.io/en/latest/(https://github.com/aristoteleo/dynamo-release/issues)">issues</a> of dynamo. For community discussion of novel usage cases, analysis tips and biological interpretations of dynamo, please join our public slack workspace: <a class="reference external" href="https://join.slack.com/t/dynamo-discussionhq/shared_invite/zt-ghve9pzp-r9oJ9hSQznWrDcx1fCog6g">dynamo-discussion</a> (Only a working email address is required from the slack side).</p>
+</section>
+<section id="contribution">
+<h1>Contribution<a class="headerlink" href="https://dynamo-release.readthedocs.io/en/latest/#contribution" title="Permalink to this heading"></a></h1>
+<p>If you want to contribute to the development of dynamo, please check out CONTRIBUTION instruction: <a class="reference external" href="https://github.com/aristoteleo/dynamo-release/blob/master/CONTRIBUTING.md">Contribution</a></p>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="https://dynamo-release.readthedocs.io/en/latest/#indices-and-tables" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="https://dynamo-release.readthedocs.io/en/latest/search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="https://dynamo-release.readthedocs.io/en/latest/notebooks/Introduction.html" class="btn btn-neutral float-right" title="Time-resolved scRNA-seq" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr>
+
+  <div role="contentinfo">
+    <p>© Copyright 2020, Xiaojie Qiu, Yan Zhang, Ke Ni.
+      <span class="commit">Revision <code>117ceb52</code>.
+      </span></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org/">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+
+  <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="Versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      <span class="fa fa-book"> Read the Docs</span>
+      v: latest
+      <span class="fa fa-caret-down"></span>
+    </span>
+    <div class="rst-other-versions"><!-- Inserted RTD Footer -->
+
+<div class="injected">
+
+  
+
+      
+      
+      
+      <dl>
+        <dt>Versions</dt>
+        
+        <dd class="rtd-current-item">
+          <a href="https://dynamo-release.readthedocs.io/en/latest/">latest</a>
+        </dd>
+        
+        <dd>
+          <a href="https://dynamo-release.readthedocs.io/en/stable/">stable</a>
+        </dd>
+        
+        <dd>
+          <a href="https://dynamo-release.readthedocs.io/en/v0.95.2/">v0.95.2</a>
+        </dd>
+        
+        <dd>
+          <a href="https://dynamo-release.readthedocs.io/en/v0.95.1/">v0.95.1</a>
+        </dd>
+        
+      </dl>
+      
+      
+
+      
+      
+      
+
+      
+      <dl>
+        
+        <!-- These are kept as relative links for internal installs that are http -->
+        <dt>On Read the Docs</dt>
+        <dd>
+          <a href="https://readthedocs.org/projects/dynamo-release/">Project Home</a>
+        </dd>
+        <dd>
+          <a href="https://readthedocs.org/projects/dynamo-release/builds/">Builds</a>
+        </dd>
+        <dd>
+          <a href="https://readthedocs.org/projects/dynamo-release/downloads/">Downloads</a>
+        </dd>
+      </dl>
+      
+
+      
+
+      
+      <dl>
+        <dt>On GitHub</dt>
+        <dd>
+          <a href="https://github.com/aristoteleo/dynamo-release/blob/master/docs/source/index.rst">View</a>
+        </dd>
+        
+        <dd>
+          <a href="https://github.com/aristoteleo/dynamo-release/edit/master/docs/source/index.rst">Edit</a>
+        </dd>
+        
+      </dl>
+      
+      
+
+      
+      <dl>
+        <dt>Search</dt>
+        <dd>
+          <div style="padding: 6px;">
+            
+            <form id="flyout-search-form" class="wy-form" target="_blank" action="https://readthedocs.org/projects/dynamo-release/search/" method="get">
+              <input type="text" name="q" aria-label="Search docs" placeholder="Search docs">
+              </form>
+          </div>
+        </dd>
+      </dl>
+      
+
+      <hr>
+
+      
+        <small>
+          <span>Hosted by <a href="https://readthedocs.org/">Read the Docs</a></span>
+          <span> · </span>
+          <a href="https://docs.readthedocs.io/page/privacy-policy.html">Privacy Policy</a>
+        </small>
+      
+
+      
+
+</div>
+</div>
+  </div>
+<script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+
+</body></html>
