@@ -1,0 +1,174 @@
+---
+title: "Niches Cell-Cell Interaction"
+output: github_document
+---
+
+```{r}
+install.packages('Seurat')
+install.packages('ggplot2')
+install.packages('viridis')
+install.packages('dplyr')
+devtools::install_local('NICHES-1.1.0.zip')
+install.packages("remotes")
+remotes::install_github("satijalab/seurat-wrappers")
+```
+
+# Perform Cell Cell Interaction Through Matrix Methods
+In this example, we utilize a method that fundamentally multiplies a ligand with receptor expression in a spatial neighborhood. Steps Include:
+1. Loading Data
+2. Creating Custom Database to Investigate Human/Mouse Interactions (different organisms)
+3. Impute Gene Expression to remove high zeros in matrix
+4. Create a Spatial Neighborhood
+5. Perform Neighborhood To Cell Matrix Multiplication
+6. Create New Seurat Object and Visualize results
+7. Perform Clustering and Differential Gene Expression
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+library(SeuratWrappers)
+library(NICHES)
+library(viridis)
+setwd('~/Desktop/tutorials/Visium/CCI')
+```
+
+
+
+## Load Data 
+```{r}
+setwd('~/Desktop/tutorials/Visium/CCI')
+#READ IN MTX FILE
+human <- read.table('../data/GV26001_human_counts.tsv.gz',sep='\t',header=TRUE,row.names=1)
+mouse <- read.table('../data/GV26001_mouse_counts.tsv.gz',sep='\t',header=TRUE,row.names = 1)
+#Subset on in tissue barcodes
+tissue <- read.table('../data/spatial/tissue_positions_list.csv',sep=',',row.names=1)
+in_tissue <- tissue[tissue$V2 == 1,]
+rownames(in_tissue) -> keeps
+
+#combine datasets
+human <- human[,colnames(mouse)]
+counts <- rbind(human,mouse)
+counts <- counts[,keeps] #subset on in tissue
+# MAKE SEURAT OBJECT
+x <- CreateSeuratObject(counts,assay = 'Spatial',project = 'CCI')
+```
+```{r}
+# READ IN IMAGE FILE
+img = Read10X_Image(image.dir = '../data/spatial',image.name = 'tissue_lowres_image.png',assay='Spatial',slice='slice1',filter.matrix = TRUE)
+# ADD IMAGE TO SEURAT OBJECT
+x@images$image <- img
+```
+
+
+## Create Custom Database
+This is an adjustment of normal ligand (human) to receptor (human) or vise versa, we are mixing source and target organisms for our unique dataset
+- **DON"T** do this IF the dataset isn't a xenograft model
+```{r}
+custom_database <- function(){
+  ground.truth.human <- LoadFantom5('human')
+  ground.truth.mouse <- LoadFantom5('mouse')
+#Make Custom Databases for Dataset (mix mouse and human)
+  human.to.mouse <- list('source.subunits' = ground.truth.human$source.subunits,'target.subunits' = ground.truth.mouse$target.subunits)
+  mouse.to.human <- list('source.subunits' = ground.truth.mouse$source.subunits,'target.subunits' = ground.truth.human$target.subunits)
+  human.human <- list('source.subunits' = ground.truth.human$source.subunits,'target.subunits' = ground.truth.human$target.subunits)
+  mouse.mouse <- list('source.subunits' = ground.truth.mouse$source.subunits,'target.subunits' = ground.truth.mouse$target.subunits)
+  ground.truth <- list('source.subunits' = rbind(human.to.mouse$source.subunits,mouse.to.human$source.subunits),
+                       'target.subunits' = rbind(human.to.mouse$target.subunits,mouse.to.human$target.subunits))
+  return(ground.truth)
+}
+
+db <- custom_database()
+db <- as.data.frame(db)
+colnames(db) <- c('source','target')
+db <- db[!duplicated(db),]
+```
+
+
+## Perform Basic Analysis
+```{r cars}
+x <- NormalizeData(x, verbose = FALSE)
+x <- FindVariableFeatures(x)
+x <- ScaleData(x)
+x <- RunPCA(x, verbose = FALSE)
+x <- FindNeighbors(x, dims = 1:30)
+x <- FindClusters(x, verbose = FALSE)
+x <- RunUMAP(x, dims = 1:30)
+
+coordinates <- GetTissueCoordinates(x)
+x@meta.data$x <- coordinates$x
+x@meta.data$y <- coordinates$y
+
+
+#RUN IMPUTATION ON DATASET
+x <- SeuratWrappers::RunALRA(x)
+```
+
+## Compute Ligand/Receptor Matrix using package NICHES
+```{r pressure, echo=FALSE}
+#compute edgelist (which cells are connected)
+edgelist <- compute_edgelist(x,position.x = 'x',position.y = 'y',k=4,rad.set = NULL)
+#Filter database by genes present in matrix
+ground_truth <- FilterGroundTruth(db,input_rownames = rownames(x@assays$alra@data))
+#RUN Matrix calculations and generate CCI 
+NICHES_output <- RunNICHES(object = x,
+                           LR.database = 'custom',
+                           custom_LR_database =db,
+                           output_format = 'seurat',
+                           assay = "alra",
+                           edgelist = edgelist,
+                           position.x = 'x',
+                           position.y = 'y',
+                           meta.data.df = x@meta.data,
+                           CellToCell = F,CellToSystem=F,SystemToCell=F,CellToCellSpatial=F,CellToNeighborhood=F,NeighborhoodToCell=T)
+```
+
+We next isolate this output and embed using UMAP to visualize the microenvironemnt of each cell.
+```{r}
+niche <- NICHES_output[['NeighborhoodToCell']]
+Idents(niche) <- niche[['ReceivingType']]
+
+# Scale and visualize
+niche <- ScaleData(niche)
+niche <- FindVariableFeatures(niche,selection.method = "disp")
+niche <- RunPCA(niche)
+ElbowPlot(niche,ndims = 50)
+```
+
+```{r}
+niche <- RunUMAP(niche,dims = 1:10)
+DimPlot(niche,reduction = 'umap',pt.size = 0.5,shuffle = T, label = T) +ggtitle('Cellular Microenvironment')+NoLegend()
+```
+
+## Differential Analysis
+```{r}
+# Find markers
+mark <- FindAllMarkers(niche,min.pct = 0.25,only.pos = T,test.use = "roc")
+GOI_niche <- mark %>% group_by(cluster) %>% top_n(5,myAUC)
+DoHeatmap(niche,features = unique(GOI_niche$gene))+ 
+  scale_fill_gradientn(colors = c("grey","white", "blue"))
+```
+
+## Make Spatial Plots To Visualize LR Activity
+Adjust genes used for ones you are interested in 
+```{r}
+# Check that these make sense and print spatial Plots
+DefaultAssay(x) <- 'alra'
+p1 <- SpatialFeaturePlot(x, crop = TRUE, features = "PDGFA",slot = "data",min.cutoff =  'q1',
+                         max.cutoff = 'q99')+ggtitle("Ligand")+theme(legend.position = "right")
+p2 <- SpatialFeaturePlot(x, crop = TRUE, features = "Pdgfrb",slot = "data",min.cutoff =  'q1',
+                         max.cutoff = 'q99')+ggtitle("Receptor")+theme(legend.position = "right")
+
+ggpubr::ggarrange(p1,p2)
+```
+
+## More Interestingly, Plot The Combined Expression Spatially on New Object
+```{r}
+# Add Niches output as an assay
+niches.data <- GetAssayData(object =  niche[['NeighborhoodToCell']], slot = 'data')
+colnames(niches.data) <- niche[['ReceivingCell']]$ReceivingCell
+x[["NeighborhoodToCell"]] <- CreateAssayObject(data = niches.data )
+DefaultAssay(x) <- "NeighborhoodToCell"
+x <- ScaleData(x)
+SpatialFeaturePlot(x,crop=TRUE,features = "PDGFA—Pdgfrb")
+```

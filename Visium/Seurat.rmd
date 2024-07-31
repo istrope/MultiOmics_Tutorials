@@ -1,0 +1,154 @@
+---
+title: "Seurat"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(Seurat)
+library(SeuratData)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+```
+
+## Load Dataset 
+Here, we will be using a recently released dataset of sagital mouse brain slices generated using the Visium v1 chemistry. 
+There are two serial anterior sections, and two (matched) serial posterior sections.
+
+You can download the data here, and load it into Seurat using the Load10X_Spatial() function. 
+This reads in the output of the spaceranger pipeline, 
+and returns a Seurat object that contains both the spot-level expression data along with the associated image of the tissue slice
+```{r cars}
+InstallData("stxBrain")
+brain <- LoadData("stxBrain", type = "anterior1")
+```
+
+## Data Preprocessing
+
+```{r pressure, echo=FALSE}
+plot1 <- VlnPlot(brain, features = "nCount_Spatial", pt.size = 0.1) + NoLegend()
+plot2 <- SpatialFeaturePlot(brain, features = "nCount_Spatial") + theme(legend.position = "right")
+wrap_plots(plot1, plot2)
+```
+
+```{r}
+brain <- SCTransform(brain, assay = "Spatial", verbose = FALSE)
+```
+## Gene Expression Visualization
+```{r}
+SpatialFeaturePlot(brain, features = c("Hpca", "Ttr"))
+```
+
+```{r}
+p1 <- SpatialFeaturePlot(brain, features = "Ttr", pt.size.factor = 1)
+p2 <- SpatialFeaturePlot(brain, features = "Ttr", alpha = c(0.1, 1))
+p1 + p2
+```
+
+## Dimensionality Reduction, Clustering, Visualization
+```{r}
+brain <- RunPCA(brain, assay = "SCT", verbose = FALSE)
+brain <- FindNeighbors(brain, reduction = "pca", dims = 1:30)
+brain <- FindClusters(brain, verbose = FALSE)
+brain <- RunUMAP(brain, reduction = "pca", dims = 1:30)
+```
+
+```{r}
+p1 <- DimPlot(brain, reduction = "umap", label = TRUE)
+p2 <- SpatialDimPlot(brain, label = TRUE, label.size = 3)
+p1 + p2
+```
+
+```{r}
+SpatialDimPlot(brain,
+            cells.highlight = CellsByIdentities(object = brain, 
+            idents = c(2, 1, 4, 3,5, 8)),
+            facet.highlight = TRUE, ncol = 3)
+```
+
+## Identify Spatially Variable Features
+
+perform differential expression based on pre-annotated anatomical regions within the tissue, 
+which may be determined either from unsupervised clustering or prior knowledge. 
+```{r}
+de_markers <- FindMarkers(brain, ident.1 = 5, ident.2 = 6)
+SpatialFeaturePlot(object = brain, features = rownames(de_markers)[1:3], alpha = c(0.1, 1), ncol = 3)
+```
+An alternative approach, implemented in FindSpatiallyVariables(), 
+is to search for features exhibiting spatial patterning in the absence of pre-annotation
+```{r}
+brain <- FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000],selection.method = "moransi")
+top.features = rownames(
+  dplyr::slice_min(
+    brain[["SCT"]]@meta.features,
+    moransi.spatially.variable.rank,
+    n = 6
+  )
+)
+SpatialFeaturePlot(brain, features = top.features, ncol = 3, alpha = c(0.1, 1))
+```
+
+
+## Integration with Single Cell Data
+At ~50um, spots from the visium assay will encompass the expression profiles of multiple cells. 
+For the growing list of systems where scRNA-seq data is available,
+ users may be interested to ‘deconvolute’ each of the spatial voxels to predict the underlying composition of cell types. 
+```{r}
+allen_reference <- readRDS("allen_cortex.rds")
+```
+enables the probabilistic transfer of annotations from a reference to a query set.
+for each spot, a probabilistic classification for each of the scRNA-seq derived classes. We add these predictions as a new assay in the Seurat object.
+```{r}
+# note that setting ncells=3000 normalizes the full dataset but learns noise models on 3k
+# cells this speeds up SCTransform dramatically with no loss in performance
+library(dplyr)
+options(future.globals.maxSize= 20000000000) #set option to process large dataset here
+allen_reference <- SCTransform(allen_reference, ncells = 3000, verbose = FALSE) %>%
+    RunPCA(verbose = FALSE) %>%
+    RunUMAP(dims = 1:30)
+```
+As with single-cell objects, you can subset the object to focus on a subset of data. 
+Here, we approximately subset the frontal cortex. 
+This process also facilitates the integration of these data with a cortical scRNA-seq dataset in the next sectio
+```{r}
+GetTissueCoordinates(brain) -> coord
+brain@meta.data$imagerow <- coord$x
+brain@meta.data$imagecol <-  coord$y
+cortex <- subset(brain, idents = c(1, 2, 3, 4, 6, 7))
+
+cortex <- subset(cortex, imagerow > 400 | imagecol < 150)
+cortex <- subset(cortex, imagerow > 275 & imagecol > 370)
+cortex <- subset(cortex, imagerow > 250 & imagecol > 440)
+```
+```{r}
+# After subsetting, we renormalize cortex
+cortex <- SCTransform(cortex, assay = "Spatial", verbose = FALSE) %>% RunPCA(verbose = FALSE) %>% RunUMAP(dims=1:30)
+# the annotation is stored in the 'subclass' column of object metadata
+DimPlot(allen_reference, group.by = "subclass", label = TRUE)
+```
+Now we get prediction scores for each spot for each class
+```{r}
+anchors <- FindTransferAnchors(reference = allen_reference, query = cortex, normalization.method = "SCT")
+
+predictions.assay <- TransferData(anchorset = anchors, refdata = allen_reference$subclass, prediction.assay = TRUE,
+    weight.reduction = cortex[["pca"]], dims = 1:30)
+
+cortex[["predictions"]] <- predictions.assay
+```
+
+Based on these prediction scores, we can also predict cell types whose location is spatially restricted. 
+We use the same methods based on marked point processes to define spatially variable features,
+but use the cell type prediction scores as the “marks” rather than gene expression.
+```{r}
+cortex <- FindSpatiallyVariableFeatures(cortex, assay = "predictions", selection.method = "moransi",
+    features = rownames(cortex), r.metric = 5, slot = "data")
+
+SpatialPlot(object = cortex, features = c('L6 CT','L5 IT','L6b','L2/3 IT'), ncol = 2)
+```
+
+Finally, we show that our integrative procedure is capable of recovering the known spatial localization patterns of both neuronal and non-neuronal subsets, 
+including laminar excitatory, layer-1 astrocytes, and the cortical grey matter.
+```{r}
+SpatialFeaturePlot(cortex, features = c("Astro", "L2/3 IT", "L4", "L5 PT", "L5 IT", "L6 CT", "L6 IT",
+    "L6b", "Oligo"), pt.size.factor = 1, ncol = 2, crop = FALSE, alpha = c(0.1, 1))
+```

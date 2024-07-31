@@ -1,0 +1,92 @@
+---
+title: "Colocalization"
+output: github_document
+---
+# Analyze Spatial Correlations Between Two Different Groups
+In this tutorial we will utilize cell type deconvolution and PAGE Enrichment dataframes to determine the amount of correlation between these two results.
+This analysis gives us potential information on how tumor/stroma+immune interact and influence one another
+
+```{r setup, include=FALSE}
+library(Giotto)
+library(data.table)
+library(dplyr)
+library(corrplot)
+```
+
+
+## Load in Data and Visualize
+This is preprocessed visium dataset through Giotto, which has the following preprocessing performed on it:
+1. Filtering
+2. Normalization
+3. Dimensionality reduction
+4. Clustering
+5. Cell Type Deconvolution 
+6. PAGE Enrichment Test
+
+```{r cars}
+setwd('~/Desktop/tutorials/Visium/Colocalization')
+readRDS('../data/GV26001_mouse.rds') -> mouse 
+readRDS('../data/GV26001_human.rds') -> human
+```
+
+Visualize cell type information
+```{r}
+# Set as dataframe object, set rownames, and remove column cell_id
+cell_type <- mouse@spatial_enrichment$cell$rna$RCTD@enrichDT %>% as.data.frame()
+rownames(cell_type) <- cell_type$cell_ID
+cell_type <- cell_type %>% select(!cell_ID)
+head(cell_type)
+```
+
+Visualize tumor enrichment results (PAGE)
+```{r}
+tumor_enrich <- human@spatial_enrichment$cell$rna$PAGE@enrichDT %>% as.data.frame()
+rownames(tumor_enrich) <- tumor_enrich$cell_ID
+tumor_enrich <- tumor_enrich %>% select(!cell_ID)
+tumor_enrich <- tumor_enrich[,colnames(tumor_enrich) %like% 'tumor_enrich'] #just look at subset of results
+head(tumor_enrich)
+```
+
+## Visualize Spatial Plots
+```{r}
+library(RColorBrewer)
+SpatialColors <- colorRampPalette(colors = rev(x = brewer.pal(n = 11, name = "Spectral")))
+FeaturePalettes <- list(
+  'Spatial' = SpatialColors(n = 100),
+  'Seurat' = c('lightgrey', 'blue')
+)
+```
+
+```{r}
+#Choose Cell Types to Visualize
+visualize <- colnames(cell_type)[1:10]
+spatCellPlot2D(mouse,
+    cell_annotation_values = visualize,
+    spat_enr_names = 'RCTD',
+    cell_color_gradient = FeaturePalettes$Spatial,
+    cow_n_col = 2)
+```
+
+```{r}
+#Choose Cell Types to Visualize
+visualize <- colnames(tumor_enrich)[1:10]
+spatCellPlot2D(human,
+    cell_annotation_values = visualize,
+    spat_enr_names = 'PAGE',
+    cell_color_gradient = FeaturePalettes$Spatial,
+    cow_n_col = 2)
+```
+
+## Correlation Analysis
+```{r}
+#set cell id to be ordered in the same way
+tumor_enrich <- tumor_enrich[rownames(cell_type),]
+
+#make dataframes numeric
+cell_type <- apply(cell_type,2,as.numeric)
+tumor_enrich <- apply(tumor_enrich,2,as.numeric)
+
+#Run Correlation Analysis
+correlation <- cor(tumor_enrich,cell_type)
+head(correlation)
+```
